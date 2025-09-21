@@ -104,3 +104,7 @@ Connect the components as described below. It is crucial to have a stable 5V pow
 3.  **Open Dashboard:** Open your web browser and navigate to `http://12.0.0.1:5000`.
 4.  **Observe:** The dashboard will begin updating automatically. The device status will change, and the map will populate with heatmap points as data is collected.
 5.  **Check Images:** The processed images will be saved in the `captured_images_with_detection` folder.
+
+![WhatsApp Image 2025-09-21 at 12 35 42_3d9e892e](https://github.com/user-attachments/assets/793e4e98-0a6d-4de6-ac48-785b623607f4)
+
+![longitude,latitude](https://github.com/user-attachments/assets/2d2e31db-ef8f-4369-9469-3a323ee03b74)
