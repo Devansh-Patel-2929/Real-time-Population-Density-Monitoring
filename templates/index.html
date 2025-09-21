@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Population Density Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif; margin: 0; background-color: #f4f7f6;
+            color: #333; display: flex; flex-direction: column; height: 100vh;
+        }
+        header {
+            background-color: #ffffff; padding: 15px 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-bottom: 3px solid #4CAF50; z-index: 1001;
+        }
+        h1 { margin: 0; color: #2c5e2e; font-weight: 600; }
+        main { display: flex; flex-grow: 1; padding: 20px; gap: 20px; overflow: hidden; }
+        #map-container {
+            flex-grow: 1; height: 100%; border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow: hidden;
+        }
+        #map { width: 100%; height: 100%; }
+        #stats-panel {
+            width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 20px;
+        }
+        .stat-card {
+            background-color: #fff; padding: 20px; border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); border-left: 5px solid #4CAF50;
+        }
+        .stat-card h2 {
+            margin: 0 0 10px 0; font-size: 1.1em; color: #555; font-weight: 400;
+        }
+        .stat-card .value { font-size: 2.5em; font-weight: 600; color: #2c5e2e; }
+        .last-update { font-size: 0.8em; color: #999; margin-top: 15px; }
+        #device-status-value { font-weight: 600; font-size: 1.2em; }
+        .status-connected { color: #28a745; }
+        .status-disconnected { color: #dc3545; }
+        .status-waiting { color: #fd7e14; }
+        .status-error { color: #b30000; }
+    </style>
+</head>
+<body>
+    <header><h1>Real-time Population Density Dashboard</h1></header>
+    <main>
+        <div id="stats-panel">
+            <div class="stat-card">
+                <h2>Device Status</h2>
+                <p id="device-status-value" class="status-waiting">WAITING</p>
+                <p class="last-update" id="last-seen">Last Seen: Never</p>
+            </div>
+            <div class="stat-card">
+                <h2>Total Images Received</h2>
+                <p class="value" id="total-images">0</p>
+            </div>
+            <div class="stat-card">
+                <h2>Total People Detected</h2>
+                <p class="value" id="total-people">0</p>
+            </div>
+        </div>
+        <div id="map-container"><div id="map"></div></div>
+    </main>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
+    <script>
+        // Set initial map view to a default location,
+        const map = L.map('map').setView([xxxx, xxxxx], 5); //replace xxx with long / latitute for intial map 
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19, attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        const heat = L.heatLayer([], {
+            radius: 25, blur: 15, maxZoom: 17, gradient: {0.4: 'blue', 0.65: 'lime', 1: 'red'}
+        }).addTo(map);
+        
+        let firstLoad = true;
+
+        async function updateDashboard() {
+            try {
+                const response = await fetch('/data');
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const dataPoints = await response.json();
+                
+                if(dataPoints.length > 0) {
+                    const lats = dataPoints.map(p => p.lat);
+                    const lngs = dataPoints.map(p => p.lng);
+                    const bounds = L.latLngBounds(L.latLng(Math.min(...lats), Math.min(...lngs)), L.latLng(Math.max(...lats), Math.max(...lngs)));
+                    
+                    if (firstLoad) {
+                        map.fitBounds(bounds, { padding: [50, 50] });
+                        firstLoad = false;
+                    }
+
+                    heat.setLatLngs(dataPoints.map(p => [p.lat, p.lng, p.count]));
+                    const totalPeople = dataPoints.reduce((sum, p) => sum + p.count, 0);
+                    document.getElementById('total-people').innerText = totalPeople;
+                }
+            } catch (error) {
+                console.error("Could not fetch heatmap data:", error);
+            }
+        }
+
+        async function updateStatus() {
+            try {
+                const response = await fetch('/status');
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const statusData = await response.json();
+
+                const statusEl = document.getElementById('device-status-value');
+                statusEl.innerText = statusData.status.replace('_', ' ');
+                statusEl.className = `status-${statusData.status.toLowerCase().split(' ')[0]}`; 
+
+                document.getElementById('last-seen').innerText = `Last Seen: ${statusData.last_seen}`;
+                document.getElementById('total-images').innerText = statusData.image_count;
+
+            } catch(error) {
+                console.error("Could not fetch status data:", error);
+                const statusEl = document.getElementById('device-status-value');
+                statusEl.innerText = 'SERVER ERROR';
+                statusEl.className = 'status-disconnected';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            updateDashboard();
+            updateStatus();
+            setInterval(updateDashboard, 5000); 
+            setInterval(updateStatus, 3000); // Check status 
+        });
+    </script>
+</body>
+</html>
